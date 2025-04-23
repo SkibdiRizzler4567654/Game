@@ -1,147 +1,138 @@
-let player;
-let hook = null;
-let hooked = false;
-let ropeLength = 200;
-let grappleRange = 300;
-let pullStrength = 3;
-let boostStrength = 5;
+// Player
+var player;
+var vx = 0;
+var vy = 0;
+var gravity = 0.5;
+var boost = false;
 
-let buildings = [];
-let buildingSpacing = 300;
-let maxBuildings = 8;
+// Grapple variables
+var hook = null;
+var hooked = false;
+var ropeLength = 200;
+var grappleRange = 300;
+var pullStrength = 3; // Speed of grapple pull
+var boostStrength = 5; // Boost speed
 
+// Buildings
+var buildings = [];
+var buildingSpacing = 300;
+var maxBuildings = 8;
+
+// Setup
 function setup() {
-    createCanvas(800, 400);
-    player = new Player(200, 300);
-    for (let i = 0; i < maxBuildings; i++) {
+    createCanvas(600, 400);
+    player = createSprite(200, 300, 20, 20);
+    player.shapeColor = "gray";
+    player.setAnimation("captin-levi"); // Assuming you have the sprite animation set up
+
+    for (var i = 0; i < maxBuildings; i++) {
         createBuilding(i * buildingSpacing + 300);
     }
 }
 
+// Main Game Loop
 function draw() {
-    background(135, 206, 250); // Sky blue
+    background("skyblue");
 
-    for (let i = 0; i < buildings.length; i++) {
-        buildings[i].update();
-        buildings[i].show();
-    }
+    // Gravity
+    if (!hooked) vy += gravity;
 
-    player.update();
-    player.show();
-
-    // Grappling mechanics
+    // Grapple logic
     if (mouseIsPressed) {
-        if (!hooked) {
-            let closest = findClosestBuilding();
-            if (closest) {
-                hook = closest;
-                hooked = true;
+        var closest = null;
+        var minDist = grappleRange;
+        for (var i = 0; i < buildings.length; i++) {
+            var b = buildings[i];
+            var d = dist(player.x, player.y, b.x, b.y);
+            if (d < minDist) {
+                minDist = d;
+                closest = b;
             }
         }
-    } else {
-        if (hooked) {
-            hooked = false;
-            hook = null;
+
+        if (closest !== null && !hooked) {
+            hook = closest;
+            hooked = true;
         }
+    }
+
+    // Unhook the player when mouse is released
+    if (!mouseIsPressed) {
+        hook = null;
+        hooked = false;
     }
 
     if (hooked && hook !== null) {
-        let dx = hook.x - player.x;
-        let dy = hook.y - player.y;
-        let distToHook = Math.sqrt(dx * dx + dy * dy);
-        let angle = Math.atan2(dy, dx);
-        let force = pullStrength;
-        if (keyIsDown(32)) { // Spacebar pressed for boost
-            force = boostStrength;
-        }
+        var dx = hook.x - player.x;
+        var dy = hook.y - player.y;
+        var distToHook = Math.sqrt(dx * dx + dy * dy);
+        var angle = Math.atan2(dy, dx);
+        var force = pullStrength;
+        if (boost) force = boostStrength;
 
         if (distToHook > 10) {
-            player.vx += Math.cos(angle) * force;
-            player.vy += Math.sin(angle) * force;
+            vx += Math.cos(angle) * force;
+            vy += Math.sin(angle) * force;
         }
 
         // Draw rope
-        stroke(0);
+        stroke("black");
         line(player.x, player.y, hook.x, hook.y);
         noStroke();
     }
 
-    // Player falls when not hooked
-    if (!hooked) {
-        player.vy += 0.5; // Gravity
-    }
+    // Apply velocity
+    player.x += vx;
+    player.y += vy;
 
-    // Prevent player from going off the screen
-    if (player.y > height) {
+    // Friction
+    vx *= 0.98;
+    vy *= 0.98;
+
+    // Fall off screen = lose
+    if (player.y > 400) {
         textSize(30);
         textAlign(CENTER);
         fill("red");
-        text("Game Over", width / 2, height / 2);
+        text("Game Over", player.x, 200);
         noLoop();
     }
-}
 
-// Helper function to find the closest building
-function findClosestBuilding() {
-    let closest = null;
-    let minDist = grappleRange;
-    for (let b of buildings) {
-        let d = dist(player.x, player.y, b.x, b.y);
-        if (d < minDist) {
-            closest = b;
-            minDist = d;
+    // Move camera with player
+    camera.x = player.x;
+
+    // Move buildings with camera and recycle them
+    for (var i = 0; i < buildings.length; i++) {
+        if (buildings[i].x < player.x - 400) {
+            buildings[i].x += buildingSpacing * maxBuildings;
+            buildings[i].y = randomNumber(100, 300);
         }
     }
-    return closest;
+
+    drawSprites();
 }
 
-// Player class
-class Player {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.size = 20;
-        this.vx = 0;
-        this.vy = 0;
-    }
-
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Apply some friction to slow down the movement
-        this.vx *= 0.98;
-        this.vy *= 0.98;
-    }
-
-    show() {
-        fill(200);
-        noStroke();
-        ellipse(this.x, this.y, this.size);
+// Double-tap space to boost
+var lastTap = 0;
+function keyPressed() {
+    if (keyCode === 32) {
+        var now = millis();
+        if (now - lastTap < 300) {
+            boost = true;
+        }
+        lastTap = now;
     }
 }
 
-// Building class
-class Building {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.width = 20;
-        this.height = random(100, 200);
-    }
-
-    update() {
-        // You can add any building movement or animations here if needed
-    }
-
-    show() {
-        fill(139, 69, 19); // Brown color
-        rect(this.x, this.y - this.height, this.width, this.height);
+function keyReleased() {
+    if (keyCode === 32) {
+        boost = false;
     }
 }
 
-// Function to create buildings
+// Create a single building
 function createBuilding(x) {
-    let building = new Building(x, random(100, 300));
-    buildings.push(building);
+    var b = createSprite(x, randomNumber(100, 300), 20, 100);
+    b.shapeColor = "brown";
+    buildings.push(b);
 }
