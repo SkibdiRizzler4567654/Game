@@ -1,136 +1,147 @@
-// Player
-var player = createSprite(200, 300, 20, 20);
-player.shapeColor = "gray";
-player.setAnimation("captin-levi");
+let player;
+let hook = null;
+let hooked = false;
+let ropeLength = 200;
+let grappleRange = 300;
+let pullStrength = 3;
+let boostStrength = 5;
 
-// Movement variables
-var vx = 0;
-var vy = 0;
-var gravity = 0.5;
-var boost = false;
+let buildings = [];
+let buildingSpacing = 300;
+let maxBuildings = 8;
 
-// Grapple variables
-var hook = null;
-var hooked = false;
-var ropeLength = 200;
-var grappleRange = 300;
-var pullStrength = 3; // Increased for faster grapple pull
-var boostStrength = 5; // Increased for faster boost
-
-// Buildings
-var buildings = [];
-var buildingSpacing = 300;
-var maxBuildings = 8;
-
-// Setup
 function setup() {
-  for (var i = 0; i < maxBuildings; i++) {
-    createBuilding(i * buildingSpacing + 300);
-  }
+    createCanvas(800, 400);
+    player = new Player(200, 300);
+    for (let i = 0; i < maxBuildings; i++) {
+        createBuilding(i * buildingSpacing + 300);
+    }
 }
 
 function draw() {
-  background("skyblue");
+    background(135, 206, 250); // Sky blue
 
-  // Gravity
-  if (!hooked) vy += gravity;
-
-  // Grapple logic
-  if (mouseDown("left") && !hooked) {
-    var closest = null;
-    var minDist = grappleRange;
-    for (var i = 0; i < buildings.length; i++) {
-      var b = buildings[i];
-      var d = dist(player.x, player.y, b.x, b.y);
-      if (d < minDist) {
-        minDist = d;
-        closest = b;
-      }
+    for (let i = 0; i < buildings.length; i++) {
+        buildings[i].update();
+        buildings[i].show();
     }
 
-    if (closest !== null) {
-      hook = closest;
-      hooked = true;
-    }
-  }
+    player.update();
+    player.show();
 
-  // Unhook the player when mouse is released
-  if (!mouseIsPressed) {
-    hook = null;
-    hooked = false;
-  }
-
-  if (hooked && hook !== null) {
-    var dx = hook.x - player.x;
-    var dy = hook.y - player.y;
-    var distToHook = Math.sqrt(dx * dx + dy * dy);
-    var angle = Math.atan2(dy, dx);
-    var force = pullStrength;
-    if (boost) force = boostStrength;
-
-    if (distToHook > 10) {
-      vx += Math.cos(angle) * force;
-      vy += Math.sin(angle) * force;
+    // Grappling mechanics
+    if (mouseIsPressed) {
+        if (!hooked) {
+            let closest = findClosestBuilding();
+            if (closest) {
+                hook = closest;
+                hooked = true;
+            }
+        }
+    } else {
+        if (hooked) {
+            hooked = false;
+            hook = null;
+        }
     }
 
-    // Draw rope
-    stroke("black");
-    line(player.x, player.y, hook.x, hook.y);
-    noStroke();
-  }
+    if (hooked && hook !== null) {
+        let dx = hook.x - player.x;
+        let dy = hook.y - player.y;
+        let distToHook = Math.sqrt(dx * dx + dy * dy);
+        let angle = Math.atan2(dy, dx);
+        let force = pullStrength;
+        if (keyIsDown(32)) { // Spacebar pressed for boost
+            force = boostStrength;
+        }
 
-  // Apply velocity
-  player.x += vx;
-  player.y += vy;
+        if (distToHook > 10) {
+            player.vx += Math.cos(angle) * force;
+            player.vy += Math.sin(angle) * force;
+        }
 
-  // Friction
-  vx *= 0.98;
-  vy *= 0.98;
-
-  // Fall off screen = lose
-  if (player.y > 400) {
-    textSize(30);
-    textAlign(CENTER);
-    fill("red");
-    text("Game Over", player.x, 200);
-    noLoop();
-  }
-
-  // Move camera with player
-  camera.x = player.x;
-
-  // Move buildings with camera and recycle them
-  for (var i = 0; i < buildings.length; i++) {
-    if (buildings[i].x < player.x - 400) {
-      buildings[i].x += buildingSpacing * maxBuildings;
-      buildings[i].y = randomNumber(100, 300);
+        // Draw rope
+        stroke(0);
+        line(player.x, player.y, hook.x, hook.y);
+        noStroke();
     }
-  }
 
-  drawSprites();
+    // Player falls when not hooked
+    if (!hooked) {
+        player.vy += 0.5; // Gravity
+    }
+
+    // Prevent player from going off the screen
+    if (player.y > height) {
+        textSize(30);
+        textAlign(CENTER);
+        fill("red");
+        text("Game Over", width / 2, height / 2);
+        noLoop();
+    }
 }
 
-// Double-tap space to boost
-var lastTap = 0;
-function keyPressed() {
-  if (keyCode === 32) {
-    var now = millis();
-    if (now - lastTap < 300) {
-      boost = true;
+// Helper function to find the closest building
+function findClosestBuilding() {
+    let closest = null;
+    let minDist = grappleRange;
+    for (let b of buildings) {
+        let d = dist(player.x, player.y, b.x, b.y);
+        if (d < minDist) {
+            closest = b;
+            minDist = d;
+        }
     }
-    lastTap = now;
-  }
+    return closest;
 }
 
-function keyReleased() {
-  if (keyCode === 32) {
-    boost = false;
-  }
+// Player class
+class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 20;
+        this.vx = 0;
+        this.vy = 0;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Apply some friction to slow down the movement
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+    }
+
+    show() {
+        fill(200);
+        noStroke();
+        ellipse(this.x, this.y, this.size);
+    }
 }
 
-// Create a single building
+// Building class
+class Building {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 20;
+        this.height = random(100, 200);
+    }
+
+    update() {
+        // You can add any building movement or animations here if needed
+    }
+
+    show() {
+        fill(139, 69, 19); // Brown color
+        rect(this.x, this.y - this.height, this.width, this.height);
+    }
+}
+
+// Function to create buildings
 function createBuilding(x) {
-  var b = createSprite(x, randomNumber(100, 300), 20, 100);
-  b.shapeColor = "brown";
-  buildings.push(b);
+    let building = new Building(x, random(100, 300));
+    buildings.push(building);
 }
