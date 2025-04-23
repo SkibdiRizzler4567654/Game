@@ -2,6 +2,7 @@
 var player = createSprite(200, 300, 20, 20);
 player.shapeColor = "gray";
 player.setAnimation("captin-levi");
+
 // Movement variables
 var vx = 0;
 var vy = 0;
@@ -35,7 +36,7 @@ function draw() {
   if (!hooked) vy += gravity;
 
   // Grapple logic
-  if (mouseDown("left")) {
+  if (mouseDown("left") && !hooked) {
     var closest = null;
     var minDist = grappleRange;
     for (var i = 0; i < buildings.length; i++) {
@@ -47,13 +48,13 @@ function draw() {
       }
     }
 
-    if (closest !== null && !hooked) {
+    if (closest !== null) {
       hook = closest;
       hooked = true;
     }
   }
 
-  // If mouse is not pressed, unhook the player
+  // Unhook the player when mouse is released
   if (!mouseIsPressed) {
     hook = null;
     hooked = false;
