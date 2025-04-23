@@ -13,8 +13,8 @@ var hook = null;
 var hooked = false;
 var ropeLength = 200;
 var grappleRange = 300;
-var pullStrength = 1.5;
-var boostStrength = 3;
+var pullStrength = 3; // Increased for faster grapple pull
+var boostStrength = 5; // Increased for faster boost
 
 // Buildings
 var buildings = [];
